@@ -70,7 +70,6 @@ var showN=6,shownFor="",qt,KEY="sodoanhthu_v1",S={products:[],sales:[],expenses:
 var DEFAULT_URL = "https://script.google.com/macros/s/AKfycbwSVhjQ68DGuv6zsrKPALbwgMFPppFMdGVCDA7U7aL5J-484DOeSqHNV1v-WODgPJ3Z/exec";
 var scriptURL = localStorage.getItem("sodoanhthu_script_url") || DEFAULT_URL;
 
-// Lấy chính xác ngày theo giờ địa phương Việt Nam, bỏ qua lỗi lệch múi giờ UTC
 function getLocalDateString(d) {
  var year = d.getFullYear();
  var month = String(d.getMonth() + 1).padStart(2, '0');
@@ -81,18 +80,14 @@ function getLocalDateString(d) {
 function cleanDate(s){
  if(!s) return getLocalDateString(new Date());
  s = String(s).trim();
- // Nếu dữ liệu dính định dạng ISO có chứa chữ T hoặc Z, xử lý lấy đúng phần ngày theo mốc thời gian gốc
- if(s.indexOf("T") >= 0 || s.indexOf("Z") >= 0) {
-  var dt = new Date(s);
-  if(!isNaN(dt.getTime())) {
-   // Dùng getUTCDate thay vì getLocal để giữ nguyên ngày gốc từ file JSON/Google Sheets gửi lên mà không bị lệch múi giờ
-   var y = dt.getUTCFullYear();
-   var m = String(dt.getUTCMonth() + 1).padStart(2, '0');
-   var d = String(dt.getUTCDate()).padStart(2, '0');
-   return y + "-" + m + "-" + d;
-  }
+ // Xử lý cắt bỏ phần giờ phút rườm rà nếu có, lấy thẳng chuỗi YYYY-MM-DD
+ if(s.indexOf("T") >= 0) {
+  return s.split("T")[0];
  }
- return s.slice(0, 10);
+ if(s.length > 10 && s.indexOf("-") >= 0) {
+  return s.slice(0, 10);
+ }
+ return s;
 }
 
 function localGet(){
@@ -229,7 +224,7 @@ var calS=null;
 function calHtml(){var y=calS.y,m=calS.m,off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),h='<div class="cal"><div class="hd"><button data-cm="-1">‹</button><b>Tháng '+(m+1)+'/'+y+'</b><button data-cm="1">›</button></div><div class="g">';
  ["T2","T3","T4","T5","T6","T7","CN"].forEach(function(w){h+='<span>'+w+'</span>'});
  for(var i=0;i<off;i++)h+='<i></i>';
- for(var d=1;d<=n;d++){var s=y+"-"+pad(m+1)+"-"+pad(d);h+='<button data-cd="'+s+'" class="'+(s===calS.cur?"on":s===today()?"td":"")+'sdag">'+d+'</button>'}
+ for(var d=1;d<=n;d++){var s=y+"-"+pad(m+1)+"-"+pad(d);h+='<button data-cd="'+s+'" class="'+(s===calS.cur?"on":s===today()?"td":"")+'">'+d+'</button>'}
  return h+'</div><button class="btn alt" data-calx="1">Đóng</button></div>'}
 function showCal(){var el=document.getElementById("dlg");el.innerHTML='<div class="box">'+calHtml()+'</div>';el.style.display="flex"}
 function openCal(cur,fn){var d=parse(cur);calS={y:d.getFullYear(),m:d.getMonth(),cur:cur,fn:fn};showCal()}
@@ -321,7 +316,7 @@ document.addEventListener("input",function(ev){var t=ev.target;
  if(t.id==="pq"||t.id==="sq"){if(t.id==="pq")pN=15;clearTimeout(qt);qt=setTimeout(function(){var el=document.getElementById(t.id==="pq"?"plist":"sres");if(el)el.innerHTML=(t.id==="pq"?plist:pickHtml)(t.value)},90)}
 });
 document.addEventListener("change",function(ev){
- if(ev.target.id==="rate"){var rv=parseFloat(String(ev.target.value).replace(",","."));if(rv>=0&&rv<=100){S.rate=rv;save("s");render();}}
+ if(ev.target.id==="rate"){var rv=parseFloat(String(ev.target.value).replace(",","."));if(rv>=0&&rv<=100){S.rate=rv;save("s";render())}}
  if(ev.target.id==="xf"){importXls(ev.target)}
  if(ev.target.id==="rf"){importBak(ev.target)}
  if(ev.target.id==="day"&&ev.target.value){day=cleanDate(ev.target.value);render()}
