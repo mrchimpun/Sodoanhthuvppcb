@@ -70,10 +70,28 @@ var showN=6,shownFor="",qt,KEY="sodoanhthu_v1",S={products:[],sales:[],expenses:
 var DEFAULT_URL = "https://script.google.com/macros/s/AKfycbwSVhjQ68DGuv6zsrKPALbwgMFPppFMdGVCDA7U7aL5J-484DOeSqHNV1v-WODgPJ3Z/exec";
 var scriptURL = localStorage.getItem("sodoanhthu_script_url") || DEFAULT_URL;
 
+// Lấy chính xác ngày theo giờ địa phương Việt Nam, bỏ qua lỗi lệch múi giờ UTC
+function getLocalDateString(d) {
+ var year = d.getFullYear();
+ var month = String(d.getMonth() + 1).padStart(2, '0');
+ var day = String(d.getDate()).padStart(2, '0');
+ return year + "-" + month + "-" + day;
+}
+
 function cleanDate(s){
- if(!s) return today();
+ if(!s) return getLocalDateString(new Date());
  s = String(s).trim();
- if(s.indexOf("T") >= 0) s = s.split("T")[0];
+ // Nếu dữ liệu dính định dạng ISO có chứa chữ T hoặc Z, xử lý lấy đúng phần ngày theo mốc thời gian gốc
+ if(s.indexOf("T") >= 0 || s.indexOf("Z") >= 0) {
+  var dt = new Date(s);
+  if(!isNaN(dt.getTime())) {
+   // Dùng getUTCDate thay vì getLocal để giữ nguyên ngày gốc từ file JSON/Google Sheets gửi lên mà không bị lệch múi giờ
+   var y = dt.getUTCFullYear();
+   var m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+   var d = String(dt.getUTCDate()).padStart(2, '0');
+   return y + "-" + m + "-" + d;
+  }
+ }
  return s.slice(0, 10);
 }
 
@@ -126,8 +144,8 @@ function banner(){
 }
 
 function pad(n){return String(n).padStart(2,"0")}
-function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
-function today(){return iso(new Date())}
+function iso(d){return getLocalDateString(d)}
+function today(){return getLocalDateString(new Date())}
 function parse(s){var a=cleanDate(s).split("-");return new Date(+a[0],+a[1]-1,+a[2])}
 function fmt(n){return Math.round(n).toLocaleString("en-US")}
 function num(s){s=String(s).replace(/\D/g,"");return s===""?NaN:+s}
@@ -211,7 +229,7 @@ var calS=null;
 function calHtml(){var y=calS.y,m=calS.m,off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),h='<div class="cal"><div class="hd"><button data-cm="-1">‹</button><b>Tháng '+(m+1)+'/'+y+'</b><button data-cm="1">›</button></div><div class="g">';
  ["T2","T3","T4","T5","T6","T7","CN"].forEach(function(w){h+='<span>'+w+'</span>'});
  for(var i=0;i<off;i++)h+='<i></i>';
- for(var d=1;d<=n;d++){var s=y+"-"+pad(m+1)+"-"+pad(d);h+='<button data-cd="'+s+'" class="'+(s===calS.cur?"on":s===today()?"td":"")+'">'+d+'</button>'}
+ for(var d=1;d<=n;d++){var s=y+"-"+pad(m+1)+"-"+pad(d);h+='<button data-cd="'+s+'" class="'+(s===calS.cur?"on":s===today()?"td":"")+'sdag">'+d+'</button>'}
  return h+'</div><button class="btn alt" data-calx="1">Đóng</button></div>'}
 function showCal(){var el=document.getElementById("dlg");el.innerHTML='<div class="box">'+calHtml()+'</div>';el.style.display="flex"}
 function openCal(cur,fn){var d=parse(cur);calS={y:d.getFullYear(),m:d.getMonth(),cur:cur,fn:fn};showCal()}
@@ -235,7 +253,7 @@ function importXls(inp){
   inp.value=""};
  rd.readAsArrayBuffer(f)}
 function importBak(inp){var f=inp.files&&inp.files[0];if(!f)return;var rd=new FileReader();
- rd.onload=function(){try{var o=JSON.parse(rd.result);if(o.products)S.products=o.products;if(o.sales)S.sales=o.sales;if(o.expenses)S.expenses=o.expenses;
+ rd.onload=function(){try{var o=JSON.parse(rd.result);if(o.products)S.products=o.products;if(o.sales) { o.sales.forEach(function(s){ s.date = cleanDate(s.date); }); S.sales=o.sales; } if(o.expenses)S.expenses=o.expenses;
   save("p");save("x");save("sales");render();note("Đã khôi phục dữ liệu.")}catch(e){note("File không hợp lệ.")}
   inp.value=""};rd.readAsText(f)}
 var askFn=null;
