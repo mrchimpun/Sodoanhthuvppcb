@@ -67,11 +67,29 @@ th,td{padding:7px 6px;border-top:1px solid var(--bd);text-align:right;white-spac
 <script>
 (function(){
 var showN=6,shownFor="",qt,KEY="sodoanhthu_v1",S={products:[],sales:[],expenses:[]},tab="ban",day=today(),rType="month",rDate=today(),eDate=today(),edit=null,saveErr=false;
-// Tự động sử dụng URL Apps Script của bạn
 var DEFAULT_URL = "https://script.google.com/macros/s/AKfycbwSVhjQ68DGuv6zsrKPALbwgMFPppFMdGVCDA7U7aL5J-484DOeSqHNV1v-WODgPJ3Z/exec";
 var scriptURL = localStorage.getItem("sodoanhthu_script_url") || DEFAULT_URL;
 
-function localGet(){try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.products&&p.sales)return p}}catch(e){}return null}
+function cleanDate(s){
+ if(!s) return today();
+ s = String(s).trim();
+ if(s.indexOf("T") >= 0) s = s.split("T")[0];
+ return s.slice(0, 10);
+}
+
+function localGet(){
+ try{
+  var raw=localStorage.getItem(KEY);
+  if(raw){
+   var p=JSON.parse(raw);
+   if(p&&p.products&&p.sales){
+    p.sales.forEach(function(s){ s.date = cleanDate(s.date); });
+    return p;
+   }
+  }
+ }catch(e){}
+ return null;
+}
 function localSet(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
 function saveToCloud(type, data){
@@ -110,11 +128,11 @@ function banner(){
 function pad(n){return String(n).padStart(2,"0")}
 function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function today(){return iso(new Date())}
-function parse(s){var a=s.split("-");return new Date(+a[0],+a[1]-1,+a[2])}
+function parse(s){var a=cleanDate(s).split("-");return new Date(+a[0],+a[1]-1,+a[2])}
 function fmt(n){return Math.round(n).toLocaleString("en-US")}
 function num(s){s=String(s).replace(/\D/g,"");return s===""?NaN:+s}
 function vnd(n){return fmt(n)+"đ"}
-function fd(s){var a=s.split("-");return a[2]+"/"+a[1]+"/"+a[0]}
+function fd(s){var a=cleanDate(s).split("-");return (a[2]||"01")+"/"+(a[1]||"01")+"/"+(a[0]||"2026")}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function sums(list){var r=0,c=0;list.forEach(function(s){r+=s.price*s.qty;c+=s.cost*s.qty});return{rev:r,cost:c,profit:r-c,n:list.length}}
@@ -122,7 +140,7 @@ function range(){var d=parse(rDate),a,b;
  if(rType==="week"){var w=(d.getDay()+6)%7;a=new Date(d.getFullYear(),d.getMonth(),d.getDate()-w);b=new Date(a.getFullYear(),a.getMonth(),a.getDate()+6)}
  else{a=new Date(d.getFullYear(),d.getMonth(),1);b=new Date(d.getFullYear(),d.getMonth()+1,0)}
  return[iso(a),iso(b)]}
-function byDay(list){var m={};list.forEach(function(s){(m[s.date]=m[s.date]||[]).push(s)});return Object.keys(m).sort().map(function(k){var t=sums(m[k]);t.date=k;return t})}
+function byDay(list){var m={};list.forEach(function(s){var d=cleanDate(s.date);(m[d]=m[d]||[]).push(s)});return Object.keys(m).sort().map(function(k){var t=sums(m[k]);t.date=k;return t})}
 function byProd(list){var m={};list.forEach(function(s){var o=m[s.name]=m[s.name]||{name:s.name,qty:0,rev:0,cost:0};o.qty+=s.qty;o.rev+=s.price*s.qty;o.cost+=s.cost*s.qty});return Object.keys(m).map(function(k){return m[k]}).sort(function(a,b){return b.rev-a.rev})}
 function pc(n){return'<b class="'+(n<0?"neg":"pos")+'">'+vnd(n)+'</b>'}
 
@@ -135,7 +153,7 @@ function render(){
 function vBan(){
  if(!S.products.some(function(p){return p.id===selId}))selId="";
  if(shownFor!==day){shownFor=day;showN=6}
- var list=S.sales.filter(function(s){return s.date===day}),t=sums(list);
+ var list=S.sales.filter(function(s){return cleanDate(s.date)===day}),t=sums(list);
  
  var h='<h1>Sổ doanh thu</h1>'+banner()+'<div class="cols"><div><div class="card"><label>Ngày</label><button type="button" class="dt" data-cal="day">'+fd(day)+' 📅</button>'+
  '<div class="sum" style="margin-top:10px"><div><small>Doanh thu</small><b>'+vnd(t.rev)+'</b></div><div><small>Lợi nhuận ('+pct()+'%)</small>'+pc(t.rev*rt())+'</div><div><small>Giao dịch</small><b>'+t.n+'</b></div></div></div>';
@@ -143,7 +161,7 @@ function vBan(){
  else h+='<button class="btn" data-act="openadd">+ Thêm giao dịch</button>';
  h+='</div><div>';
  h+='<div class="card"><h2>Giao dịch ngày '+fd(day)+'</h2>'+(list.length?list.slice().reverse().slice(0,showN).map(function(s){return'<div class="item"><div class="m">'+esc(s.name)+'<span>'+s.qty+' × '+vnd(s.price)+'</span></div><div class="r">'+vnd(s.price*s.qty)+'</div><button class="ed" data-edits="'+s.id+'">Sửa</button><button class="x" data-del="'+s.id+'" aria-label="Xóa">✕</button></div>'}).join("")+(list.length>showN?'<button class="btn alt" data-more="1" style="margin:8px 0 0">Xem thêm ('+(list.length-showN)+' giao dịch)</button>':"")+(showN>6&&list.length>6?'<button class="btn alt" data-less="1" style="margin:8px 0 0">Thu gọn</button>':""):'<div class="empty">Chưa có giao dịch</div>')+'</div></div></div>';
- var td=today(),ms=td.slice(0,8)+"01",ml=S.sales.filter(function(s){return s.date>=ms&&s.date<=td}),mt=sums(ml),days=byDay(ml).reverse();
+ var td=today(),ms=td.slice(0,8)+"01",ml=S.sales.filter(function(s){var sd=cleanDate(s.date);return sd>=ms&&sd<=td}),mt=sums(ml),days=byDay(ml).reverse();
  h+='<div class="card"><h2>Tổng tháng này: '+fd(ms)+' → '+fd(td)+'</h2><div class="sum"><div><small>Doanh thu</small><b>'+vnd(mt.rev)+'</b></div><div><small>Lợi nhuận ('+pct()+'%)</small>'+pc(mt.rev*rt())+'</div><div><small>Giao dịch</small><b>'+mt.n+'</b></div></div></div>';
  if(days.length)h+='<div class="card"><h2>Tổng theo ngày trong tháng</h2><div class="days">'+days.map(function(d){return'<div class="item" data-goto="'+d.date+'" style="cursor:pointer"><div class="m">'+fd(d.date)+'<span>'+d.n+' giao dịch</span></div><div class="r">'+vnd(d.rev)+'<span style="display:block;font-size:13px" class="pos">LN '+vnd(d.rev*rt())+'</span></div></div>'}).join("")+'</div></div>';
  return h;
@@ -158,7 +176,7 @@ function vSp(){
 function vKc(){var et=0;S.expenses.forEach(function(e){et+=e.amount});
  return'<h1>Khoản chi</h1><div class="card"><h2>Phí cố định mỗi tháng</h2><div class="row"><div><label>Tên khoản chi</label><input id="en" placeholder="VD: Tiền điện" autocomplete="off"></div><div><label>Giá</label><input id="ea" class="money" inputmode="numeric" placeholder="0"></div></div><button class="btn" data-act="addexp">Thêm khoản chi</button></div><div class="card"><div class="tbl"><table><tr><th>Tên khoản chi</th><th>Giá</th><th></th></tr>'+S.expenses.map(function(e){return'<tr><td style="white-space:normal">'+esc(e.name)+'</td><td>'+vnd(e.amount)+'</td><td><button class="ed" data-exe="'+e.id+'">Sửa</button><button class="x" data-dele="'+e.id+'" aria-label="Xóa">✕</button></td></tr>'}).join("")+'<tr><td><b>Tổng chi mỗi tháng</b></td><td><b>'+vnd(et)+'</b></td><td></td></tr></table></div></div>'}
 function vBc(){
- var r=range(),list=S.sales.filter(function(s){return s.date>=r[0]&&s.date<=r[1]}),t=sums(list),dd=byDay(list),ex=S.expenses,et=0;ex.forEach(function(e){et+=e.amount});
+ var r=range(),list=S.sales.filter(function(s){var sd=cleanDate(s.date);return sd>=r[0]&&sd<=r[1]}),t=sums(list),dd=byDay(list),ex=S.expenses,et=0;ex.forEach(function(e){et+=e.amount});
  var h='<h1>Báo cáo</h1><div class="card"><label>Chọn một ngày trong '+(rType==="week"?"tuần":"tháng")+' cần xem</label><div style="display:flex;gap:6px"><button class="btn alt" data-rnav="-1" style="width:auto;margin:0;padding:10px 16px">‹</button><button type="button" class="dt" data-cal="rd" style="flex:1">'+fd(rDate)+' 📅</button><button class="btn alt" data-rnav="1" style="width:auto;margin:0;padding:10px 16px">›</button></div><p style="margin:10px 0 0;color:var(--mu)">'+fd(r[0])+' → '+fd(r[1])+'</p>'+
  '<label>Tỉ lệ lợi nhuận (%)</label><input id="rate" inputmode="decimal" value="'+pct()+'" style="max-width:140px"><div class="sum" style="margin-top:10px;grid-template-columns:repeat(2,1fr)"><div><small>Doanh thu</small><b>'+vnd(t.rev)+'</b></div><div><small>Lợi nhuận</small>'+pc(t.rev*rt()-et)+'</div></div><button class="btn" data-act="export">Xuất file báo cáo (CSV)</button></div>';
  h+='<div class="card"><h2>Doanh thu theo ngày</h2>'+(dd.length?bars(r,dd):'<div class="empty">Không có dữ liệu</div>')+'</div>';
@@ -242,7 +260,7 @@ function onClick(ev){
  if(D.pmore||D.pless){pN=D.pmore?pN+15:15;var pe=document.getElementById("plist"),pqi=document.getElementById("pq");if(pe)pe.innerHTML=plist(pqi?pqi.value:"");return}
  if(D.more){showN+=10;render();return}
  if(D.less){showN=6;render();return}
- if(D.goto){day=D.goto;render();window.scrollTo(0,0);return}
+ if(D.goto){day=cleanDate(D.goto);render();window.scrollTo(0,0);return}
  if(D.rnav){var nd=parse(rDate);if(rType==="week")nd.setDate(nd.getDate()+7*(+D.rnav));else nd=new Date(nd.getFullYear(),nd.getMonth()+(+D.rnav),1);rDate=iso(nd);render();return}
  if(D.edits){var es=S.sales.filter(function(s){return s.id===D.edits})[0];if(!es)return;var el2=document.getElementById("dlg");el2.innerHTML='<div class="box"><p><b>'+esc(es.name)+'</b></p><label>Số lượng</label><input id="eq" type="number" inputmode="decimal" min="0" value="'+es.qty+'"><label>Giá bán</label><input id="ep" class="money" inputmode="numeric" value="'+fmt(es.price)+'"><div class="row"><button class="btn alt" data-no="1">Hủy</button><button class="btn" data-saves="'+es.id+'">Lưu</button></div></div>';el2.style.display="flex";return}
  if(D.saves){var ss=S.sales.filter(function(s){return s.id===D.saves})[0];if(!ss)return;var eqi=document.getElementById("eq"),epi=document.getElementById("ep"),nq=parseFloat(eqi.value),np2=num(epi.value);if(!(nq>0)||isNaN(np2))return;ss.qty=nq;ss.price=np2;save("sales");hideAsk();render();return}
@@ -263,8 +281,8 @@ function onClick(ev){
  if(a==="addsale"){
   var p=S.products.filter(function(x){return x.id===document.getElementById("sp").value})[0],q=parseFloat(document.getElementById("qty").value),g=document.getElementById("gia").value.replace(/\D/g,"");
   var er=document.getElementById("adderr");if(!p){er.textContent="Hãy chọn một sản phẩm.";return}if(!(q>0)){er.textContent="Nhập số lượng hợp lệ.";return}
-  var ns={id:uid(),date:addD.date,pid:p.id,name:p.name,qty:q,price:g!==""?Math.max(0,+g):p.price,cost:p.cost||0};
-  S.sales.push(ns);save("sales");day=addD.date;hideAsk();render();showMsg("✓ Đã thêm giao dịch");
+  var ns={id:uid(),date:cleanDate(addD.date),pid:p.id,name:p.name,qty:q,price:g!==""?Math.max(0,+g):p.price,cost:p.cost||0};
+  S.sales.push(ns);save("sales");day=cleanDate(addD.date);hideAsk();render();showMsg("✓ Đã thêm giao dịch");
  }
  if(a==="saveprod"){
   var n=document.getElementById("pn").value.trim(),pr=num(document.getElementById("pp").value),co=num(document.getElementById("pc").value)||0;
@@ -285,11 +303,11 @@ document.addEventListener("input",function(ev){var t=ev.target;
  if(t.id==="pq"||t.id==="sq"){if(t.id==="pq")pN=15;clearTimeout(qt);qt=setTimeout(function(){var el=document.getElementById(t.id==="pq"?"plist":"sres");if(el)el.innerHTML=(t.id==="pq"?plist:pickHtml)(t.value)},90)}
 });
 document.addEventListener("change",function(ev){
- if(ev.target.id==="rate"){var rv=parseFloat(String(ev.target.value).replace(",","."));if(rv>=0&&rv<=100){S.rate=rv;save("s");render()}}
+ if(ev.target.id==="rate"){var rv=parseFloat(String(ev.target.value).replace(",","."));if(rv>=0&&rv<=100){S.rate=rv;save("s");render();}}
  if(ev.target.id==="xf"){importXls(ev.target)}
  if(ev.target.id==="rf"){importBak(ev.target)}
- if(ev.target.id==="day"&&ev.target.value){day=ev.target.value;render()}
- if(ev.target.id==="rd"&&ev.target.value){rDate=ev.target.value;render()}
+ if(ev.target.id==="day"&&ev.target.value){day=cleanDate(ev.target.value);render()}
+ if(ev.target.id==="rd"&&ev.target.value){rDate=cleanDate(ev.target.value);render()}
 });
 
 function initCloudData(){
@@ -302,7 +320,10 @@ function initCloudData(){
   .then(function(data){
    if(data) {
     if(data.products && data.products.length) S.products = data.products;
-    if(data.sales && data.sales.length) S.sales = data.sales;
+    if(data.sales && data.sales.length) {
+     data.sales.forEach(function(s){ s.date = cleanDate(s.date); });
+     S.sales = data.sales;
+    }
     if(data.expenses && data.expenses.length) S.expenses = data.expenses;
     if(typeof data.rate === "number") S.rate = data.rate;
     localSet();
