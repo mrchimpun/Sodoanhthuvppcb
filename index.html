@@ -80,7 +80,6 @@ function getLocalDateString(d) {
 function cleanDate(s){
  if(!s) return getLocalDateString(new Date());
  s = String(s).trim();
- // Xử lý cắt bỏ phần giờ phút rườm rà nếu có, lấy thẳng chuỗi YYYY-MM-DD
  if(s.indexOf("T") >= 0) {
   return s.split("T")[0];
  }
@@ -316,7 +315,7 @@ document.addEventListener("input",function(ev){var t=ev.target;
  if(t.id==="pq"||t.id==="sq"){if(t.id==="pq")pN=15;clearTimeout(qt);qt=setTimeout(function(){var el=document.getElementById(t.id==="pq"?"plist":"sres");if(el)el.innerHTML=(t.id==="pq"?plist:pickHtml)(t.value)},90)}
 });
 document.addEventListener("change",function(ev){
- if(ev.target.id==="rate"){var rv=parseFloat(String(ev.target.value).replace(",","."));if(rv>=0&&rv<=100){S.rate=rv;save("s";render())}}
+ if(ev.target.id==="rate"){var rv=parseFloat(String(ev.target.value).replace(",","."));if(rv>=0&&rv<=100){S.rate=rv;save("s");render();}}
  if(ev.target.id==="xf"){importXls(ev.target)}
  if(ev.target.id==="rf"){importBak(ev.target)}
  if(ev.target.id==="day"&&ev.target.value){day=cleanDate(ev.target.value);render()}
