@@ -69,16 +69,16 @@ th,td{padding:7px 6px;border-top:1px solid var(--bd);text-align:right;white-spac
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
-var showN=6,shownFor="",qt,KEY="sodoanhthu_v1",S={products:[],sales:[],expenses:[]},tab="ban",day=today(),rType="month",rDate=today(),eDate=today(),edit=null,mode="load",base=null,q=Promise.resolve(),saveErr=false;
+var showN=6,shownFor="",qt,KEY="sodoanhthu_v1",S={products:[],sales:[],expenses:[]},tab="ban",day=today(),rType="month",rDate=today(),eDate=today(),edit=null,mode="load",saveErr=false;
 
-// Gán link Web App của Google Sheets vào đây
+// Link Google Apps Script Web App của anh
 var GS_URL = 'https://script.google.com/macros/s/AKfycbwSVhjQ68DGuv6zsrKPALbwgMFPppFMdGVCDA7U7aL5J-484DOeSqHNV1v-WODgPJ3Z/exec';
 
 function localGet(){try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.products&&p.sales)return p}}catch(e){}return null}
 function localSet(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
 function save(tag){
-  localSet(); // Lưu dự phòng trên máy
+  localSet();
   try {
     var payload = {};
     if(tag === "p") payload = { action: "save_products", items: S.products };
@@ -97,7 +97,7 @@ function save(tag){
   }
 }
 
-function banner(){if(mode==="local")return'<div class="card" style="border-color:var(--rd)">Chưa kết nối Google Sheets.</div>';if(saveErr)return'<div class="card" style="border-color:var(--rd)">Chưa lưu được lên máy chủ, vui lòng kiểm tra mạng rồi thao tác lại.</div>';return""}
+function banner(){if(mode==="local")return'<div class="card" style="border-color:var(--rd)">Chưa kết nối Google Sheets.</div>';if(saveErr)return'<div class="card" style="border-color:var(--rd)">Chưa lưu được lên máy chủ, vui lòng kiểm tra mạng.</div>';return""}
 function pad(n){return String(n).padStart(2,"0")}
 function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function today(){return iso(new Date())}
@@ -119,7 +119,7 @@ function pc(n){return'<b class="'+(n<0?"neg":"pos")+'">'+vnd(n)+'</b>'}
 
 function render(){
  var h="";
- if(mode==="load"){document.getElementById("app").innerHTML='<div class="empty">Đang tải dữ liệu...</div>';return}
+ if(mode==="load"){document.getElementById("app").innerHTML='<div class="empty">Đang tải dữ liệu từ Google Sheets...</div>';return}
  if(tab==="ban")h=vBan();else if(tab==="sp")h=vSp();else if(tab==="kc")h=vKc();else h=vBc();
  document.getElementById("app").innerHTML=h;
  document.getElementById("nav").innerHTML=[["ban","Bán hàng"],["sp","Sản phẩm"],["kc","Khoản chi"],["bc","Báo cáo"]].map(function(t){return'<button data-tab="'+t[0]+'" class="'+(tab===t[0]?"on":"")+'">'+t[1]+'</button>'}).join("");
@@ -230,10 +230,9 @@ var askFn=null;
 function ask(msg,fn){askFn=fn;var d=document.getElementById("dlg");d.innerHTML='<div class="box"><p>'+esc(msg)+'</p><div class="row"><button data-no="1" class="btn alt">Hủy</button><button data-yes="1" class="btn">Xóa</button></div></div>';d.style.display="flex"}
 function hideAsk(){askFn=null;document.getElementById("dlg").style.display="none"}
 function note(msg){var d=document.getElementById("dlg");d.innerHTML='<div class="box"><p>'+esc(msg)+'</p><button data-no="1" class="btn">Đã hiểu</button></div>';d.style.display="flex"}
-async function dl(name,text,type){
- try{var d=await claude.use("downloads");if(!d){say("Thiết bị này chưa hỗ trợ tải file.");return}
-  await d.save({filename:name,data:new Blob(["\ufeff"+text],{type:type})});
- }catch(e){if(!e||e.code!=="declined")say("Không tải được file.")}
+function dl(name,text,type){
+ var b=new Blob(["\ufeff"+text],{type:type}),a=document.createElement("a");
+ a.href=URL.createObjectURL(b);a.download=name;a.click();
 }
 document.addEventListener("click",function(ev){try{onClick(ev)}catch(err){note("Có lỗi xảy ra: "+(err&&err.message))}});
 function onClick(ev){
