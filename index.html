@@ -71,20 +71,20 @@ th,td{padding:7px 6px;border-top:1px solid var(--bd);text-align:right;white-spac
 (function(){
 var showN=6,shownFor="",qt,KEY="sodoanhthu_v1",S={products:[],sales:[],expenses:[]},tab="ban",day=today(),rType="month",rDate=today(),eDate=today(),edit=null,mode="load",base=null,q=Promise.resolve(),saveErr=false;
 
-// URL Google Sheets Web App của bạn
+// Gán link Web App của Google Sheets vào đây
 var GS_URL = 'https://script.google.com/macros/s/AKfycbwSVhjQ68DGuv6zsrKPALbwgMFPppFMdGVCDA7U7aL5J-484DOeSqHNV1v-WODgPJ3Z/exec';
 
 function localGet(){try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.products&&p.sales)return p}}catch(e){}return null}
 function localSet(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 
-// Hàm đẩy dữ liệu lên Google Sheets
-function syncToGoogleSheets(tag){
+function save(tag){
+  localSet(); // Lưu dự phòng trên máy
   try {
     var payload = {};
-    if(tag === "p") payload = { type: "products", items: S.products };
-    else if(tag === "x") payload = { type: "expenses", items: S.expenses };
-    else if(tag === "s") payload = { type: "settings", rate: S.rate };
-    else payload = { type: "sales", month: tag, items: S.sales.filter(function(s){return s.date.slice(0,7)===tag}) };
+    if(tag === "p") payload = { action: "save_products", items: S.products };
+    else if(tag === "x") payload = { action: "save_expenses", items: S.expenses };
+    else if(tag === "s") payload = { action: "save_settings", rate: S.rate };
+    else payload = { action: "save_sales", month: tag, items: S.sales.filter(function(s){return s.date.slice(0,7)===tag}) };
 
     fetch(GS_URL, {
       method: 'POST',
@@ -92,23 +92,12 @@ function syncToGoogleSheets(tag){
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-  } catch(e) {}
+  } catch(e) {
+    console.error("Lỗi đồng bộ Google Sheets:", e);
+  }
 }
 
-function push(tag){
- var isE=tag==="x",data=JSON.parse(JSON.stringify(tag==="p"?{items:S.products}:isE?{items:S.expenses}:tag==="s"?{rate:S.rate}:{sales:S.sales.filter(function(s){return s.date.slice(0,7)===tag})}));
- var id=tag==="p"?"products":isE?"fixed":tag==="s"?"settings":"m_"+tag;
- q=q.then(function(){return base.doc(id).set(data)}).then(function(){if(saveErr){saveErr=false;render()}},function(){saveErr=true;render()});
- return q}
-
-function save(tag){
-  if(mode==="cloud")push(tag);
-  else localSet();
-  // Gọi hàm đồng bộ sang Google Sheets
-  syncToGoogleSheets(tag);
-}
-
-function banner(){if(mode==="local")return'<div class="card" style="border-color:var(--rd)">Chưa đăng nhập claude.ai nên dữ liệu chỉ lưu trên máy này. Hãy mở app khi đã đăng nhập để đồng bộ.</div>';if(saveErr)return'<div class="card" style="border-color:var(--rd)">Chưa lưu được lên máy chủ, vui lòng kiểm tra mạng rồi thao tác lại.</div>';return""}
+function banner(){if(mode==="local")return'<div class="card" style="border-color:var(--rd)">Chưa kết nối Google Sheets.</div>';if(saveErr)return'<div class="card" style="border-color:var(--rd)">Chưa lưu được lên máy chủ, vui lòng kiểm tra mạng rồi thao tác lại.</div>';return""}
 function pad(n){return String(n).padStart(2,"0")}
 function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function today(){return iso(new Date())}
@@ -276,7 +265,7 @@ function onClick(ev){
  if(D.saves){var ss=S.sales.filter(function(s){return s.id===D.saves})[0];if(!ss)return;var eqi=document.getElementById("eq"),epi=document.getElementById("ep"),nq=parseFloat(eqi.value),np2=num(epi.value);eqi.style.borderColor=nq>0?"":"var(--rd)";epi.style.borderColor=isNaN(np2)?"var(--rd)":"";if(!(nq>0)||isNaN(np2))return;var edb=document.getElementById("edebt").checked,epd=edb?(num(document.getElementById("edpaid").value)||0):0,ecn=document.getElementById("ecust").value.trim(),isd=edb&&epd<Math.round(nq*np2);if(isd&&!ecn){document.getElementById("ecust").style.borderColor="var(--rd)";return}ss.qty=nq;ss.price=np2;if(isd){ss.debt=true;ss.cust=ecn;if(epd>0)ss.paid=epd;else delete ss.paid}else{delete ss.debt;delete ss.paid;delete ss.cust}save(ss.date.slice(0,7));hideAsk();render();return}
  if(D.exe){showExp(D.exe);return}
  if(D.dele){ask("Xóa khoản chi này?",function(){var ei=-1;S.expenses.forEach(function(x,i){if(x.id===D.dele)ei=i});if(ei<0)return;var eo=S.expenses[ei],em="x";S.expenses.splice(ei,1);save(em);render();showUndo("Đã xóa khoản chi "+eo.name,function(){S.expenses.splice(Math.min(ei,S.expenses.length),0,eo);save(em);render()})});return}
- if(D.del){ask("Xóa giao dịch này?",function(){var si=-1;S.sales.forEach(function(s,i){if(s.id===D.del)si=i});if(si<0)return;var sl=S.sales[si],dm=sl.date.slice(0,7);S.sales.splice(si,1);save(dm);render();showUndo("Đã xóa giao dịch "+sl.name,function(){S.sales.splice(Math.min(si,S.sales.length),0,sl);save(dm);render()})});return}
+ if(D.del){ask("Xóa giao dịch này?",function(){var si=-1;S.sales.filter(function(s,i){if(s.id===D.del)si=i});if(si<0)return;var sl=S.sales[si],dm=sl.date.slice(0,7);S.sales.splice(si,1);save(dm);render();showUndo("Đã xóa giao dịch "+sl.name,function(){S.sales.splice(Math.min(si,S.sales.length),0,sl);save(dm);render()})});return}
  if(D.edit){edit=D.edit;showProd();return}
  if(D.delp){ask("Xóa sản phẩm này? Các giao dịch đã ghi vẫn được giữ.",function(){var pi=-1;S.products.forEach(function(p,i){if(p.id===D.delp)pi=i});if(pi<0)return;var pr0=S.products[pi];if(edit===D.delp)edit=null;S.products.splice(pi,1);save("p");render();showUndo("Đã xóa sản phẩm "+pr0.name,function(){S.products.splice(Math.min(pi,S.products.length),0,pr0);save("p");render()})});return}
  var a=D.act;if(!a)return;
@@ -332,24 +321,33 @@ document.addEventListener("change",function(ev){
  if(ev.target.id==="day"&&ev.target.value){day=ev.target.value;render()}
  if(ev.target.id==="rd"&&ev.target.value){rDate=ev.target.value;render()}
 });
+
 async function init(){
  render();
- try{
-  var db=await claude.use("db"),us=await claude.use("user"),uid=us?await us.id():null;
-  if(db&&uid){
-   base=db.collection("data/users/"+uid);
-   var snap=await base.get(),has=false,fx=null,ol=[];
-   S={products:[],sales:[],expenses:[]};
-   snap.docs.forEach(function(d){if(!d.exists)return;has=true;var x=JSON.parse(JSON.stringify(d.data()||{}));if(d.id==="products")S.products=x.items||[];else if(d.id.indexOf("m_")===0)S.sales=S.sales.concat(x.sales||[]);else if(d.id==="settings"){if(typeof x.rate==="number")S.rate=x.rate}else if(d.id==="fixed")fx=x.items||[];else if(d.id.indexOf("e_")===0)ol=ol.concat(x.items||[])});
-   if(fx)S.expenses=fx;else if(ol.length){S.expenses=ol;push("x")}
-   mode="cloud";
-   if(!has){var L=localGet();if(L&&(L.products.length||L.sales.length)){S=L;push("p");var ms={};L.sales.forEach(function(s){ms[s.date.slice(0,7)]=1});Object.keys(ms).forEach(function(k){push(k)});q.then(function(){if(!saveErr)say("Đã chuyển dữ liệu từ máy này lên tài khoản của bạn.")})}}
-  }else{mode="local";var L2=localGet();if(L2)S=L2}
- }catch(e){mode="local";var L3=localGet();if(L3)S=L3}
- if(!S.expenses)S.expenses=[];
- if(typeof S.rate!=="number")S.rate=35;
+ try {
+  var res = await fetch(GS_URL + '?action=get_all');
+  var json = await res.json();
+  if(json && json.status === "success" && json.data){
+   S = json.data;
+   localSet();
+  } else {
+   var L = localGet();
+   if(L) S = L;
+  }
+ } catch(e) {
+  var L = localGet();
+  if(L) S = L;
+ }
+ 
+ if(!S.products) S.products = [];
+ if(!S.sales) S.sales = [];
+ if(!S.expenses) S.expenses = [];
+ if(typeof S.rate !== "number") S.rate = 35;
+ 
+ mode = "cloud";
  render();
 }
+
 init();
 })();
 </script>
