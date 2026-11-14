@@ -70,14 +70,44 @@ th,td{padding:7px 6px;border-top:1px solid var(--bd);text-align:right;white-spac
 <script>
 (function(){
 var showN=6,shownFor="",qt,KEY="sodoanhthu_v1",S={products:[],sales:[],expenses:[]},tab="ban",day=today(),rType="month",rDate=today(),eDate=today(),edit=null,mode="load",base=null,q=Promise.resolve(),saveErr=false;
+
+// URL Google Sheets Web App của bạn
+var GS_URL = 'https://script.google.com/macros/s/AKfycbwSVhjQ68DGuv6zsrKPALbwgMFPppFMdGVCDA7U7aL5J-484DOeSqHNV1v-WODgPJ3Z/exec';
+
 function localGet(){try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.products&&p.sales)return p}}catch(e){}return null}
 function localSet(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+// Hàm đẩy dữ liệu lên Google Sheets
+function syncToGoogleSheets(tag){
+  try {
+    var payload = {};
+    if(tag === "p") payload = { type: "products", items: S.products };
+    else if(tag === "x") payload = { type: "expenses", items: S.expenses };
+    else if(tag === "s") payload = { type: "settings", rate: S.rate };
+    else payload = { type: "sales", month: tag, items: S.sales.filter(function(s){return s.date.slice(0,7)===tag}) };
+
+    fetch(GS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) {}
+}
+
 function push(tag){
  var isE=tag==="x",data=JSON.parse(JSON.stringify(tag==="p"?{items:S.products}:isE?{items:S.expenses}:tag==="s"?{rate:S.rate}:{sales:S.sales.filter(function(s){return s.date.slice(0,7)===tag})}));
  var id=tag==="p"?"products":isE?"fixed":tag==="s"?"settings":"m_"+tag;
  q=q.then(function(){return base.doc(id).set(data)}).then(function(){if(saveErr){saveErr=false;render()}},function(){saveErr=true;render()});
  return q}
-function save(tag){if(mode==="cloud")push(tag);else localSet()}
+
+function save(tag){
+  if(mode==="cloud")push(tag);
+  else localSet();
+  // Gọi hàm đồng bộ sang Google Sheets
+  syncToGoogleSheets(tag);
+}
+
 function banner(){if(mode==="local")return'<div class="card" style="border-color:var(--rd)">Chưa đăng nhập claude.ai nên dữ liệu chỉ lưu trên máy này. Hãy mở app khi đã đăng nhập để đồng bộ.</div>';if(saveErr)return'<div class="card" style="border-color:var(--rd)">Chưa lưu được lên máy chủ, vui lòng kiểm tra mạng rồi thao tác lại.</div>';return""}
 function pad(n){return String(n).padStart(2,"0")}
 function iso(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
